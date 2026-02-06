@@ -6,6 +6,8 @@
 # Description: Custom statusline for Claude Code CLI showing context usage
 #              as a visual progress bar with color-coded warnings.
 #
+# Requirements: bash, grep, sed, git (no jq needed)
+#
 # Features:
 #   - Visual progress bar [████████░░░░░░░] instead of plain text
 #   - Color-coded: green (<60%), yellow (60-79%), red (>=80%)
@@ -32,29 +34,36 @@
 input=$(cat)
 
 project_dir="${CLAUDE_PROJECT_DIR:-$(pwd)}"
-cwd=$(echo "$input" | jq -r '.workspace.current_dir // ""' 2>/dev/null)
-[[ -z "$cwd" || "$cwd" == "null" ]] && cwd="$project_dir"
 
 # ─────────────────────────────────────────────────────────────────
-# TOKENS - Context usage
+# JSON helpers (pure bash — no jq required)
 # ─────────────────────────────────────────────────────────────────
-input_tokens=$(echo "$input" | jq -r '.context_window.current_usage.input_tokens // 0' 2>/dev/null)
-cache_read=$(echo "$input" | jq -r '.context_window.current_usage.cache_read_input_tokens // 0' 2>/dev/null)
-cache_creation=$(echo "$input" | jq -r '.context_window.current_usage.cache_creation_input_tokens // 0' 2>/dev/null)
+# Extract numeric value: "key":123 → 123
+get_num() {
+    echo "$input" | grep -oE "\"$1\"[[:space:]]*:[[:space:]]*[0-9]+" | grep -oE '[0-9]+$' | head -1
+}
+# Extract string value: "key":"value" → value
+get_str() {
+    local match
+    match=$(echo "$input" | grep -oE "\"$1\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" | head -1)
+    echo "$match" | sed 's/^[^:]*:[[:space:]]*"//;s/"$//'
+}
 
-system_overhead=45000
-total_tokens=$((input_tokens + cache_read + cache_creation + system_overhead))
-context_size=$(echo "$input" | jq -r '.context_window.context_window_size // 200000' 2>/dev/null)
+cwd=$(get_str "current_dir")
+[[ -z "$cwd" ]] && cwd="$project_dir"
 
-context_pct=$((total_tokens * 100 / context_size))
+# ─────────────────────────────────────────────────────────────────
+# TOKENS - Context usage (uses Claude Code's built-in percentage)
+# ─────────────────────────────────────────────────────────────────
+context_pct=$(get_num "used_percentage")
+context_pct=${context_pct:-0}
+# Sanitize for arithmetic
+context_pct=$((context_pct + 0))
 [[ "$context_pct" -gt 100 ]] && context_pct=100
 
 # Write for hooks (per-session to avoid multi-instance conflicts)
 session_id="${CLAUDE_SESSION_ID:-$PPID}"
 echo "$context_pct" > "/tmp/claude-context-pct-${session_id}.txt"
-
-# Format as K with one decimal
-token_display=$(awk "BEGIN {printf \"%.1fK\", $total_tokens/1000}")
 
 # ─────────────────────────────────────────────────────────────────
 # PROGRESS BAR - Visual context usage
