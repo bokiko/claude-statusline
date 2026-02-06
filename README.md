@@ -29,7 +29,7 @@ This addon replaces it with a **visual progress bar** that shows more at a glanc
 [██████░░░░░░░░░] 41% | main | ✓ fixed auth → add tests
 ```
 
-No configuration files to edit. No dependencies to install. Just one script.
+No configuration files to edit. No dependencies to install. No `jq` required. Just one script.
 
 ---
 
@@ -113,7 +113,7 @@ The installer copies the script and tells you what to add to settings.json.
 - Visual progress bar (15 characters wide)
 - Color-coded: green → yellow → red
 - Warning icon at 80%+ usage
-- Tracks input, cache, and system tokens
+- Uses Claude Code's built-in context percentage
 
 </td>
 <td width="50%">
@@ -163,7 +163,6 @@ You can customize the script by editing `~/.claude/scripts/status.sh`:
 | Variable | Default | What It Does |
 |----------|---------|--------------|
 | `bar_width` | `15` | How many characters wide the progress bar is |
-| `system_overhead` | `45000` | Estimated system prompt size (affects % calculation) |
 
 ---
 
@@ -184,11 +183,11 @@ claude-statusline/
 
 Claude Code pipes JSON to the statusline command via stdin. The JSON includes:
 
-- **Token usage** — input tokens, cache read, cache creation
+- **Context usage** — `used_percentage` and `remaining_percentage`
 - **Context window size** — maximum allowed tokens
 - **Workspace** — current working directory
 
-The script uses `jq` to parse the JSON, calculates usage percentage, and renders a color-coded progress bar using ANSI escape codes. It then checks for git status and continuity ledger files in the project directory.
+The script parses the JSON using pure bash (`grep`/`sed` — no `jq` needed), reads the usage percentage, and renders a color-coded progress bar using ANSI escape codes. It then checks for git status and continuity ledger files in the project directory.
 
 ---
 
@@ -197,15 +196,10 @@ The script uses `jq` to parse the JSON, calculates usage percentage, and renders
 | Requirement | Why |
 |-------------|-----|
 | [Claude Code CLI](https://claude.ai/code) | This is an addon for Claude Code |
-| `jq` | Parses the JSON input from Claude Code |
-| `git` | Shows branch and file status (optional — works without it) |
 | Bash 4+ | Uses bash-specific features for the progress bar |
+| `git` | Shows branch and file status (optional — works without it) |
 
-Most systems already have these. To check:
-
-```bash
-jq --version && git --version && bash --version | head -1
-```
+No external tools like `jq` are needed — the script uses pure bash parsing.
 
 ---
 
@@ -214,7 +208,7 @@ jq --version && git --version && bash --version | head -1
 | Problem | Fix |
 |---------|-----|
 | Statusline doesn't appear | Make sure `~/.claude/settings.json` has the `statusLine` section and restart Claude Code |
-| Shows `0%` always | Check that `jq` is installed: `jq --version` |
+| Shows `0%` always | Make sure the script is executable: `chmod +x ~/.claude/scripts/status.sh` |
 | No git info showing | Make sure you're in a git repository |
 | No task/ledger info | This requires [Continuous Claude](https://github.com/parcadei/Continuous-Claude-v3) continuity ledger files |
 | Permission denied | Run `chmod +x ~/.claude/scripts/status.sh` |
