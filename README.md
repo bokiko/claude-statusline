@@ -130,9 +130,11 @@ The installer copies the script and tells you what to add to settings.json.
 
 ---
 
-## Works With Continuous Claude
+## Works Great With
 
-This statusline is designed to work perfectly with [**Continuous Claude v3**](https://github.com/parcadei/Continuous-Claude-v3) — a persistent, learning, multi-agent development environment built on Claude Code.
+### [Continuous Claude v3](https://github.com/parcadei/Continuous-Claude-v3)
+
+A persistent, learning, multi-agent development environment built on Claude Code.
 
 When you use Continuous Claude, the statusline automatically picks up:
 
@@ -142,7 +144,15 @@ When you use Continuous Claude, the statusline automatically picks up:
 | **Handoff awareness** | See what was done and what's next at a glance after resuming a session |
 | **Context warnings** | Know when to create a handoff before context fills up |
 
-If you're using Continuous Claude's handoff system, the statusline keeps you informed without breaking your flow. If you're not using Continuous Claude, the statusline works standalone — it simply skips the ledger section.
+If you're using Continuous Claude's handoff system, the statusline keeps you informed without breaking your flow.
+
+### [BloxCue](https://github.com/bokiko/bloxcue)
+
+Reduce Claude Code context usage by 90% with on-demand memory retrieval.
+
+The statusline's context percentage becomes even more useful when paired with BloxCue — you'll see exactly how much context you're saving in real time. As BloxCue keeps your context lean, the progress bar stays green longer, giving you more room to work before needing to compact or hand off.
+
+If you're not using either of these tools, the statusline works standalone — it simply skips the ledger section.
 
 ---
 
