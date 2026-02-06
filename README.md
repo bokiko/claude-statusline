@@ -221,17 +221,6 @@ jq --version && git --version && bash --version | head -1
 
 ---
 
-## Roadmap
-
-- [x] Visual progress bar with color coding
-- [x] Git branch and file status
-- [x] Continuity ledger integration
-- [x] One-command installer
-- [ ] Customizable themes
-- [ ] Token cost estimation display
-
----
-
 ## License
 
 MIT — see [LICENSE](LICENSE) for details.
