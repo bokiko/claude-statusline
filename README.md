@@ -12,6 +12,10 @@
   <img src="https://img.shields.io/github/last-commit/bokiko/claude-statusline?style=flat-square" alt="Last Commit">
 </p>
 
+<br>
+
+<img src="https://raw.githubusercontent.com/bokiko/claude-statusline/main/1.png" alt="Claude Code Statusline Preview" width="750">
+
 </div>
 
 ---
