@@ -5,6 +5,7 @@
 <strong>Upgrade your Claude Code status bar from plain text to a visual progress bar</strong>
 
 <p>
+  <img src="https://img.shields.io/github/stars/bokiko/claude-statusline?style=flat-square" alt="Stars">
   <img src="https://img.shields.io/badge/Bash-4EAA25?style=flat-square&logo=gnubash&logoColor=white" alt="Bash">
   <img src="https://img.shields.io/badge/Claude_Code-Addon-orange?style=flat-square" alt="Claude Code">
   <img src="https://img.shields.io/github/license/bokiko/claude-statusline?style=flat-square" alt="License">
@@ -29,7 +30,7 @@ This addon replaces it with a **visual progress bar** with model, git, and cost 
 [██████░░░░░░░░░] 41% | Sonnet | main | $0.03
 ```
 
-No configuration files to edit. No dependencies to install. No `jq` required. Just one script.
+One script, one settings entry. No extra dependencies. No `jq` required.
 
 ---
 
@@ -168,6 +169,8 @@ You can customize the script by editing `~/.claude/scripts/status.sh`:
 | Variable | Default | What It Does |
 |----------|---------|--------------|
 | `bar_width` | `15` | How many characters wide the progress bar is |
+| Yellow threshold | `60` | Context % where bar turns yellow (search for `-ge 60`) |
+| Red threshold | `80` | Context % where bar turns red with ⚠ (search for `-ge 80`) |
 
 ---
 
@@ -217,7 +220,7 @@ Parsed using pure bash (`grep`/`sed`) — no `jq` needed.
 | Statusline doesn't appear | Make sure `~/.claude/settings.json` has the `statusLine` section and restart Claude Code |
 | Shows `0%` always | Make sure the script is executable: `chmod +x ~/.claude/scripts/status.sh` |
 | No git info showing | Make sure you're in a git repository |
-| No model name showing | Requires Claude Code v1.x+ (the `model.display_name` field) |
+| No model name showing | Requires Claude Code v2.0+ (the `model.display_name` field) |
 | Permission denied | Run `chmod +x ~/.claude/scripts/status.sh` |
 
 ---

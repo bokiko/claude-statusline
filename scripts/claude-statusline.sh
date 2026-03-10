@@ -83,7 +83,15 @@ for ((i=0; i<empty; i++)); do bar+="░"; done
 # MODEL - Display name + optional agent name
 # ─────────────────────────────────────────────────────────────────
 model=$(get_str "display_name")
-agent=$(get_str "name")  # present only when running as a sub-agent
+
+# Agent name — only extract from within the "agent" block to avoid false matches
+# (output_style also has a "name" key which would otherwise pollute the result)
+agent=""
+if echo "$input" | grep -q '"agent"'; then
+    agent=$(echo "$input" | grep -oE '"agent"[[:space:]]*:[[:space:]]*\{[^}]*\}' | \
+        grep -oE '"name"[[:space:]]*:[[:space:]]*"[^"]*"' | \
+        sed 's/^[^:]*:[[:space:]]*"//;s/"$//')
+fi
 
 model_info=""
 if [[ -n "$model" ]]; then
@@ -124,8 +132,9 @@ fi
 cost_raw=$(get_float "total_cost_usd")
 cost_info=""
 if [[ -n "$cost_raw" && "$cost_raw" != "0" ]]; then
-    # Format: $0.042 (3 decimal places via awk)
-    cost_info=$(awk -v c="$cost_raw" 'BEGIN { printf "$%.3f", c }')
+    # Format: 3 decimal places, strip only the 3rd decimal if it's a zero
+    # Result: $0.042, $0.01, $1.50, $0.187
+    cost_info=$(awk -v c="$cost_raw" 'BEGIN { printf "$%.3f\n", c }' | sed 's/\(\.[0-9][0-9]\)0$/\1/')
 fi
 
 # ─────────────────────────────────────────────────────────────────
