@@ -23,10 +23,10 @@ Claude Code shows a plain text statusline at the bottom of your terminal:
 83.9k 41%
 ```
 
-This addon replaces it with a **visual progress bar** that shows more at a glance:
+This addon replaces it with a **visual progress bar** with model, git, and cost info:
 
 ```
-[██████░░░░░░░░░] 41% | main | ✓ fixed auth → add tests
+[██████░░░░░░░░░] 41% | Sonnet | main | $0.03
 ```
 
 No configuration files to edit. No dependencies to install. No `jq` required. Just one script.
@@ -40,16 +40,21 @@ BEFORE (default):
   83.9k 41%
 
 AFTER (this addon):
-  [██████░░░░░░░░░] 41% | main | ✓ fixed auth → add tests
+  [██████░░░░░░░░░] 41% | Sonnet | main | $0.03
 ```
 
 The bar changes color as your context fills up:
 
 | Context Used | Color | What It Looks Like |
 |--------------|-------|--------------------|
-| **Under 60%** | Green | `[█████░░░░░░░░░] 34% \| main` |
-| **60% - 79%** | Yellow | `[█████████░░░░░░] 65% \| main U:2` |
-| **80%+** | Red | `⚠ [████████████░░░] 85% \| main` |
+| **Under 60%** | Green | `[█████░░░░░░░░░] 34% \| Sonnet \| main \| $0.02` |
+| **60% - 79%** | Yellow | `[█████████░░░░░░] 65% \| Opus \| main U:2 \| $0.15` |
+| **80%+** | Red | `⚠ [████████████░░░] 85% \| Opus \| main \| $0.89` |
+
+When running as a sub-agent, the agent name appears in parentheses:
+```
+[██████░░░░░░░░░] 72% | Opus (debug-agent) | feat/auth | $0.19
+```
 
 ---
 
@@ -118,11 +123,27 @@ The installer copies the script and tells you what to add to settings.json.
 </td>
 <td width="50%">
 
-### Git & Task Status
+### Model & Session Info
+- Current model name (Sonnet / Opus / Haiku)
+- Sub-agent name when running inside an agent
+- Session cost in USD (`$0.042`)
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### Git Status
 - Current branch name
 - Staged (S), unstaged (U), and added (A) file counts
-- Continuity ledger: last task done → current focus
-- Truncates long names cleanly
+- Truncates long branch names cleanly
+
+</td>
+<td width="50%">
+
+### Zero Dependencies
+- Pure bash — no `jq`, no `python`, no npm
+- Works on any system with bash 4+ and git
 
 </td>
 </tr>
@@ -132,27 +153,11 @@ The installer copies the script and tells you what to add to settings.json.
 
 ## Works Great With
 
-### [Continuous Claude v3](https://github.com/parcadei/Continuous-Claude-v3)
-
-A persistent, learning, multi-agent development environment built on Claude Code.
-
-When you use Continuous Claude, the statusline automatically picks up:
-
-| Feature | What It Shows |
-|---------|---------------|
-| **Continuity ledger** | Last completed task → current focus from your `CONTINUITY_CLAUDE-*.md` files |
-| **Handoff awareness** | See what was done and what's next at a glance after resuming a session |
-| **Context warnings** | Know when to create a handoff before context fills up |
-
-If you're using Continuous Claude's handoff system, the statusline keeps you informed without breaking your flow.
-
 ### [BloxCue](https://github.com/bokiko/bloxcue)
 
 Reduce Claude Code context usage by 90% with on-demand memory retrieval.
 
-The statusline's context percentage becomes even more useful when paired with BloxCue — you'll see exactly how much context you're saving in real time. As BloxCue keeps your context lean, the progress bar stays green longer, giving you more room to work before needing to compact or hand off.
-
-If you're not using either of these tools, the statusline works standalone — it simply skips the ledger section.
+The statusline's context percentage becomes even more useful when paired with BloxCue — you'll see exactly how much context you're saving in real time. As BloxCue keeps your context lean, the progress bar stays green longer.
 
 ---
 
@@ -181,13 +186,17 @@ claude-statusline/
 
 ## How It Works
 
-Claude Code pipes JSON to the statusline command via stdin. The JSON includes:
+Claude Code pipes JSON to the statusline command via stdin. The script reads:
 
-- **Context usage** — `used_percentage` and `remaining_percentage`
-- **Context window size** — maximum allowed tokens
-- **Workspace** — current working directory
+| JSON field | What it shows |
+|------------|---------------|
+| `context_window.used_percentage` | Progress bar + percentage |
+| `model.display_name` | Model name (Sonnet / Opus / Haiku) |
+| `agent.name` | Sub-agent name (if running inside an agent) |
+| `workspace.current_dir` | Used for git status |
+| `cost.total_cost_usd` | Session cost in USD |
 
-The script parses the JSON using pure bash (`grep`/`sed` — no `jq` needed), reads the usage percentage, and renders a color-coded progress bar using ANSI escape codes. It then checks for git status and continuity ledger files in the project directory.
+Parsed using pure bash (`grep`/`sed`) — no `jq` needed.
 
 ---
 
@@ -199,8 +208,6 @@ The script parses the JSON using pure bash (`grep`/`sed` — no `jq` needed), re
 | Bash 4+ | Uses bash-specific features for the progress bar |
 | `git` | Shows branch and file status (optional — works without it) |
 
-No external tools like `jq` are needed — the script uses pure bash parsing.
-
 ---
 
 ## Troubleshooting
@@ -210,7 +217,7 @@ No external tools like `jq` are needed — the script uses pure bash parsing.
 | Statusline doesn't appear | Make sure `~/.claude/settings.json` has the `statusLine` section and restart Claude Code |
 | Shows `0%` always | Make sure the script is executable: `chmod +x ~/.claude/scripts/status.sh` |
 | No git info showing | Make sure you're in a git repository |
-| No task/ledger info | This requires [Continuous Claude](https://github.com/parcadei/Continuous-Claude-v3) continuity ledger files |
+| No model name showing | Requires Claude Code v1.x+ (the `model.display_name` field) |
 | Permission denied | Run `chmod +x ~/.claude/scripts/status.sh` |
 
 ---

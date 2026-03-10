@@ -11,8 +11,10 @@
 # Features:
 #   - Visual progress bar [████████░░░░░░░] instead of plain text
 #   - Color-coded: green (<60%), yellow (60-79%), red (>=80%)
+#   - Model name (Sonnet / Opus / Haiku)
+#   - Agent name when running as a sub-agent
 #   - Git branch + staged/unstaged/added file counts
-#   - Continuity ledger status (last done -> current focus)
+#   - Session cost in USD
 #
 # Installation:
 #   1. Copy to ~/.claude/scripts/status.sh
@@ -26,9 +28,9 @@
 #      }
 #
 # Display Examples:
-#   < 60%:  [█████░░░░░░░░░░] 34% | main | task status
-#   60-79%: [█████████░░░░░░] 65% | main U:2 | task status  (yellow)
-#   >= 80%: ⚠ [████████████░░░] 85% | main | current focus  (red)
+#   < 60%:  [█████░░░░░░░░░░] 34% | Sonnet | main | $0.02
+#   60-79%: [█████████░░░░░░] 65% | Opus | main U:2 | $0.15        (yellow)
+#   >= 80%: ⚠ [████████████░░░] 85% | Opus (debug-agent) | main | $0.89  (red)
 # ============================================================================
 
 input=$(cat)
@@ -38,9 +40,13 @@ project_dir="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 # ─────────────────────────────────────────────────────────────────
 # JSON helpers (pure bash — no jq required)
 # ─────────────────────────────────────────────────────────────────
-# Extract numeric value: "key":123 → 123
+# Extract integer value: "key":123 → 123
 get_num() {
     echo "$input" | grep -oE "\"$1\"[[:space:]]*:[[:space:]]*[0-9]+" | grep -oE '[0-9]+$' | head -1
+}
+# Extract float value: "key":0.0123 → 0.0123
+get_float() {
+    echo "$input" | grep -oE "\"$1\"[[:space:]]*:[[:space:]]*[0-9]+\.?[0-9]*" | grep -oE '[0-9]+\.?[0-9]*$' | head -1
 }
 # Extract string value: "key":"value" → value
 get_str() {
@@ -50,14 +56,14 @@ get_str() {
 }
 
 cwd=$(get_str "current_dir")
+[[ -z "$cwd" ]] && cwd=$(get_str "cwd")
 [[ -z "$cwd" ]] && cwd="$project_dir"
 
 # ─────────────────────────────────────────────────────────────────
-# TOKENS - Context usage (uses Claude Code's built-in percentage)
+# CONTEXT - Usage percentage + progress bar
 # ─────────────────────────────────────────────────────────────────
 context_pct=$(get_num "used_percentage")
 context_pct=${context_pct:-0}
-# Sanitize for arithmetic
 context_pct=$((context_pct + 0))
 [[ "$context_pct" -gt 100 ]] && context_pct=100
 
@@ -65,17 +71,28 @@ context_pct=$((context_pct + 0))
 session_id="${CLAUDE_SESSION_ID:-$PPID}"
 echo "$context_pct" > "/tmp/claude-context-pct-${session_id}.txt"
 
-# ─────────────────────────────────────────────────────────────────
-# PROGRESS BAR - Visual context usage
-# ─────────────────────────────────────────────────────────────────
 bar_width=15
 filled=$((context_pct * bar_width / 100))
 empty=$((bar_width - filled))
 
-# Build the bar
 bar=""
 for ((i=0; i<filled; i++)); do bar+="█"; done
 for ((i=0; i<empty; i++)); do bar+="░"; done
+
+# ─────────────────────────────────────────────────────────────────
+# MODEL - Display name + optional agent name
+# ─────────────────────────────────────────────────────────────────
+model=$(get_str "display_name")
+agent=$(get_str "name")  # present only when running as a sub-agent
+
+model_info=""
+if [[ -n "$model" ]]; then
+    if [[ -n "$agent" ]]; then
+        model_info="$model \033[35m($agent)\033[0m"
+    else
+        model_info="$model"
+    fi
+fi
 
 # ─────────────────────────────────────────────────────────────────
 # GIT - Branch + S/U/A counts
@@ -102,57 +119,33 @@ if git -C "$cwd" rev-parse --git-dir > /dev/null 2>&1; then
 fi
 
 # ─────────────────────────────────────────────────────────────────
-# CONTINUITY - Last done + Current focus (what you'd forget)
+# COST - Session USD spend
 # ─────────────────────────────────────────────────────────────────
-ledger=$(ls -t "$project_dir"/CONTINUITY_CLAUDE-*.md 2>/dev/null | head -1)
-last_done=""
-now_focus=""
-
-if [[ -n "$ledger" ]]; then
-    last_done=$(grep -E '^\s*-\s*Done:' "$ledger" 2>/dev/null | \
-        tail -1 | \
-        sed 's/^[[:space:]]*-[[:space:]]*Done:[[:space:]]*//')
-    [[ ${#last_done} -gt 20 ]] && last_done="${last_done:0:18}.."
-
-    now_focus=$(grep -E '^\s*-\s*Now:' "$ledger" 2>/dev/null | \
-        sed 's/^[[:space:]]*-[[:space:]]*Now:[[:space:]]*//' | \
-        head -1)
-
-    if [[ -n "$last_done" ]]; then
-        [[ ${#now_focus} -gt 25 ]] && now_focus="${now_focus:0:23}.."
-    else
-        [[ ${#now_focus} -gt 40 ]] && now_focus="${now_focus:0:38}.."
-    fi
-fi
-
-continuity=""
-if [[ -n "$last_done" && -n "$now_focus" ]]; then
-    continuity="✓ $last_done → $now_focus"
-elif [[ -n "$now_focus" ]]; then
-    continuity="$now_focus"
+cost_raw=$(get_float "total_cost_usd")
+cost_info=""
+if [[ -n "$cost_raw" && "$cost_raw" != "0" ]]; then
+    # Format: $0.042 (3 decimal places via awk)
+    cost_info=$(awk -v c="$cost_raw" 'BEGIN { printf "$%.3f", c }')
 fi
 
 # ─────────────────────────────────────────────────────────────────
-# OUTPUT - Color-coded progress bar
+# OUTPUT - Assemble color-coded statusline
 # ─────────────────────────────────────────────────────────────────
+build_output() {
+    local ctx_display="$1"
+    local out="$ctx_display"
+    [[ -n "$model_info" ]] && out="$out | $model_info"
+    [[ -n "$git_info" ]]   && out="$out | $git_info"
+    [[ -n "$cost_info" ]]  && out="$out | \033[36m$cost_info\033[0m"
+    echo "$out"
+}
+
 if [[ "$context_pct" -ge 80 ]]; then
-    # CRITICAL - Red bar with warning
     ctx_display="\033[31m⚠ [${bar}] ${context_pct}%\033[0m"
-    output="$ctx_display"
-    [[ -n "$git_info" ]] && output="$output | $git_info"
-    [[ -n "$now_focus" ]] && output="$output | $now_focus"
 elif [[ "$context_pct" -ge 60 ]]; then
-    # WARNING - Yellow bar
     ctx_display="\033[33m[${bar}] ${context_pct}%\033[0m"
-    output="$ctx_display"
-    [[ -n "$git_info" ]] && output="$output | $git_info"
-    [[ -n "$continuity" ]] && output="$output | $continuity"
 else
-    # NORMAL - Green bar
     ctx_display="\033[32m[${bar}] ${context_pct}%\033[0m"
-    output="$ctx_display"
-    [[ -n "$git_info" ]] && output="$output | $git_info"
-    [[ -n "$continuity" ]] && output="$output | $continuity"
 fi
 
-echo -e "$output"
+echo -e "$(build_output "$ctx_display")"
